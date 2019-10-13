@@ -6,6 +6,7 @@
 #       Train Script
 ############################################################################
 
+
 import sys
 import os
 import numpy as np
@@ -29,16 +30,20 @@ from sklearn.metrics import r2_score
 from sklearn.metrics import mean_absolute_error
 #import sklearn.metrics as metrics
 
+import matplotlib.pyplot as plt
 
 import mlflow
 import mlflow.sklearn
 
+#mlflow.delete_experiment('0')
+#mlflow.delete_experiment('1')
+
 np.random.seed(40)
 
-#try:
-#    import cPickle as pickle
-#except ImportError:
-#    import pickle
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 ##############################
 #    Default paths
@@ -91,10 +96,21 @@ if not os.path.exists(model_version_path):
     os.makedirs(model_version_path)
 
 print('Versao do modelo: {}'.format(model_version_name))
+###############################
+##    Create Folder model version
+###############################
+# Set the experiment name to an experiment 
+if len(sys.argv) > 3:
+    mlflow.set_experiment(sys.argv[3])
+else:
+    mlflow.set_experiment("prediction-bike-sharing")
+
 ##############################
 #    Features and Target
 ##############################
-bike_processed = pd.read_csv(PATH_PROCESSED_DATA+'bikes_processed.csv')
+data_processed_path = PATH_PROCESSED_DATA+'bikes_processed.csv'
+
+bike_processed = pd.read_csv(data_processed_path )
 
 X = bike_processed[bike_processed.columns.difference(['cnt', 'dteday'])].values
 y = bike_processed['cnt'].values
@@ -104,16 +120,16 @@ y = bike_processed['cnt'].values
 ##############################
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=split, random_state=seed)
 
-#X_train_final = pd.DataFrame(X_train)
-#X_train_final['target'] = y_train
-#
-#X_test_final = pd.DataFrame(X_test)
-#X_test_final['target'] = y_test 
-#
-## Save train data
-#X_train_final.to_csv(PATH_MODEL+'train.csv',index=False, encoding='utf-8-sig')
-## Save test data
-#X_test_final.to_csv(PATH_MODEL+'test.csv', index=False, encoding='utf-8-sig')    
+X_train_final = pd.DataFrame(X_train)
+X_train_final['target'] = y_train
+
+X_test_final = pd.DataFrame(X_test)
+X_test_final['target'] = y_test 
+
+# Save train data
+X_train_final.to_csv(model_version_path+'/train.csv',index=False, encoding='utf-8-sig')
+# Save test data
+X_test_final.to_csv(model_version_path+'/test.csv', index=False, encoding='utf-8-sig')    
 
     
 ##############################
@@ -135,33 +151,54 @@ with mlflow.start_run():
     
     y_pred = regr.predict(X_test)
     
-    (MLSE, MSE, R2, MAE) = eval_metrics(y_test, y_pred)
+    (MSLE, MSE, R2, MAE) = eval_metrics(y_test, y_pred)
     
     print("RandomForest (max_depth={}, n_estimators={}):".format(max_depth,n_estimators))
-    print("  MLSE: {}".format(MLSE))
+    print("  MLSE: {}".format(MSLE))
     print("  MSE: {}".format(MSE))
     print("  MAE: {}".format(MAE))
     print("  R2: {}".format(R2))
     
     mlflow.log_param("max_depth", max_depth)
     mlflow.log_param("n_estimators", n_estimators)
-    mlflow.log_metric("MLSE", MLSE)
+    mlflow.log_metric("MSLE", MSLE)
     mlflow.log_metric("MSE", MSE)
     mlflow.log_metric("MAE", MAE)
     mlflow.log_metric("R2", R2)
     
     mlflow.sklearn.log_model(regr, "model")
 
+    print('Modelo treinado com sucesso!')
 
-print('Modelo treinado com sucesso!')
+    ##############################
+    #    Plots
+    ##############################
+    # Plot the residuals
+    residuals = y_test-y_pred
+    fig, ax = plt.subplots()
+    ax.scatter(y_test, residuals)
+    ax.axhline(lw=2,color='black')
+    ax.set_xlabel('Observed')
+    ax.set_ylabel('Residuals')
+    ax.title.set_text('Residual Plot | Root Squared Mean Log Error: {}'.format(np.sqrt(MSLE)))
+    plot_residuls = "{}/{}-{}.png".format(model_version_path, 'model-residuals', model_version_name)
+    plt.savefig(plot_residuls)
+    mlflow.log_artifact(plot_residuls)
+    #plt.show()
 
-##############################
-#    Save Model
-##############################
-#    
-##with open(os.path.join(model_version_path, '{}.pkl'.format(model_version_name)), 'wb') as fd:
-#with open(os.path.join(PATH_MODEL, 'model.pkl'), 'wb') as fd:
-#    pickle.dump(regr, fd)
-#    
-##print('Modelo salvo em: {}'.format(model_version_path, '{}.pkl'.format(model_version_name)))
-#    print('Modelo salvo em: {}'.format(PATH_MODEL, 'model.pkl'))
+    ##############################
+    #    Save Model
+    ##############################  
+#    #with open(os.path.join(model_version_path, '{}.pkl'.format(model_version_name)), 'wb') as fd:
+#    with open(os.path.join(model_version_path, '{}.pkl'.format(model_version_name)), 'wb') as fd:
+#        pickle.dump(regr, fd)
+#        
+#    #print('Modelo salvo em: {}'.format(model_version_path, '{}.pkl'.format(model_version_name)))
+#    print('Modelo salvo em: {}'.format(model_version_path, '/{}.pkl'.format(model_version_name)))
+    ##############################
+    #    Log Artifacts
+    ##############################
+    # Log Data Processed
+    mlflow.log_artifact(local_path=data_processed_path)
+    # Log all artifacts generated during the experiment
+    mlflow.log_artifacts(local_dir=model_version_path)

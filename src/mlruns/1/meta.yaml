@@ -1,0 +1,4 @@
+artifact_location: file:///C:/Users/Windows10/Desktop/project-prediction-bike-sharing/src/mlruns/1
+experiment_id: '1'
+lifecycle_stage: active
+name: prediction-bike-sharing

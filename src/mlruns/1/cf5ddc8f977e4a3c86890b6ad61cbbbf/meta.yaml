@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Windows10/Desktop/project-prediction-bike-sharing/src/mlruns/1/cf5ddc8f977e4a3c86890b6ad61cbbbf/artifacts
+end_time: 1570928901262
+entry_point_name: ''
+experiment_id: '1'
+lifecycle_stage: active
+name: ''
+run_id: cf5ddc8f977e4a3c86890b6ad61cbbbf
+run_uuid: cf5ddc8f977e4a3c86890b6ad61cbbbf
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1570928900360
+status: 3
+tags: []
+user_id: Jessica Cabral
