@@ -2,7 +2,7 @@ artifact_uri: file:///C:/Users/Windows10/Desktop/project-prediction-bike-sharing
 end_time: 1570928901262
 entry_point_name: ''
 experiment_id: '1'
-lifecycle_stage: active
+lifecycle_stage: deleted
 name: ''
 run_id: cf5ddc8f977e4a3c86890b6ad61cbbbf
 run_uuid: cf5ddc8f977e4a3c86890b6ad61cbbbf

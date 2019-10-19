@@ -11,12 +11,13 @@ import os
 import pandas as pd
 import numpy as np
 from sklearn import preprocessing
+from sklearn.decomposition import PCA
 
 ##############################
 #    Default paths
 ##############################
-PATH_RAW_DATA = 'data/raw/'
-PATH_PROCESSED_DATA = 'data/processed/'
+PATH_RAW_DATA = '../data/raw/'
+PATH_PROCESSED_DATA = '../data/processed/'
 
 print("Path Raw Data: {}".format(PATH_RAW_DATA))
 print("Path Processed Data: {}".format(PATH_PROCESSED_DATA))
@@ -29,17 +30,21 @@ bikes = pd.read_csv(PATH_RAW_DATA+'bikes.csv')
 print('Data Shape: {}\n'.format(bikes.shape))
 
 ##############################
-#     Selecting features that we are going to use
+#     PCA
 ##############################
-print('Selection Features...')
-features_to_be_removed = ['casual', 'registered', 'atemp', 'instant', 'yr']
-bikes = bikes[bikes.columns.difference(features_to_be_removed)]
-print('Data Shape after feature selection: {}\n'.format(bikes.shape))
+pca=PCA(n_components=1)
+pca.fit(bikes[['temp', 'atemp']])
+bikes['temp_PCA']=pca.fit_transform(bikes[['temp','atemp']])
 
 ##############################
 #     transform the "dteday" feature to date type
 ##############################
 bikes["dteday"] = pd.to_datetime(bikes["dteday"])
+
+##############################
+#     Replace windwindspeed
+##############################
+bikes.loc[bikes['windspeed']==0, 'windspeed'] = bikes['windspeed'].mean()
 
 ##############################
 #     One-Hot-Encoding
@@ -60,7 +65,7 @@ print(bikes.head(1))
 #     Normalize features - scale
 ##############################
 print('Feature Normalizarion...')
-numerical_features = ["temp", "hum", "windspeed"]
+numerical_features = ["temp_PCA", "hum", "windspeed", "hr"] 
 
 print('Features before the normalization')
 print(bikes.loc[:, numerical_features][:5])
@@ -84,6 +89,20 @@ print(bikes.loc[:, numerical_features][:5])
 # Neste fator eh convertido para ordenado numÃ©rico para ser compativel com os tipos de dados do Azure ML
 # bikes$dayWeek <- as.factor(weekdays(bikes$dteday))
 
+
+##############################
+#     Log Target
+##############################
+
+bikes['cnt'] = np.log(bikes['cnt']+1)
+
+##############################
+#     Selecting features that we are going to use
+##############################
+print('Selection Features...')
+features_to_be_removed = ['casual', 'registered', 'instant', 'yr', 'atemp', 'temp']
+bikes = bikes[bikes.columns.difference(features_to_be_removed)]
+print('Data Shape after feature selection: {}\n'.format(bikes.shape))
 
 ##############################
 #     Save processed Dataset
