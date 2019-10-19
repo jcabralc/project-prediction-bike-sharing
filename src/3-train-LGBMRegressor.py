@@ -30,7 +30,7 @@ import mlflow
 import mlflow.sklearn
 
 #mlflow.delete_experiment('0')
-#mlflow.delete_run('a913b1f95c9f4cf4aeef8f53855c889f')
+#mlflow.delete_run('eca525f9a4a943b3915c982d9f5c2256')
 
 np.random.seed(40)
 
@@ -60,12 +60,23 @@ algorithm_name = 'LGBMRegressor'
 ###############################
 ##  Function Evaluation
 ###############################
+def RMSLE_metric(real, predicted):
+    sum=0.0
+    for x in range(len(predicted)):
+        if predicted[x]<0 or real[x]<0: #check for negative values
+            continue
+        p = np.log(predicted[x]+1)
+        r = np.log(real[x]+1)
+        sum = sum + (p - r)**2
+    return (sum/len(predicted))**0.5
+
 def eval_metrics(actual, pred):
     MSLE = mean_squared_log_error(actual, pred) 
     MSE = mean_squared_error(actual, pred) 
     R2 = r2_score(actual, pred)  
     MAE = mean_absolute_error(actual, pred)
-    return MSLE, MSE, R2, MAE
+    RMSLE = RMSLE_metric(actual, pred)
+    return MSLE, MSE, R2, MAE, RMSLE
 
 ###############################
 ##    Model Parameters
@@ -193,13 +204,14 @@ with mlflow.start_run():
     y_pred = LGBMRegressor_model.predict(X_test) # log predictions
     y_pred = np.exp(y_pred)-1 # Non log
     
-    (MSLE, MSE, R2, MAE) = eval_metrics(y_test, y_pred)
+    (MSLE, MSE, R2, MAE, RMSLE) = eval_metrics(y_test, y_pred)
     
     print("LGBMRegressor:")
     print("  MLSE: {}".format(MSLE))
     print("  MSE: {}".format(MSE))
     print("  MAE: {}".format(MAE))
     print("  R2: {}".format(R2))
+    print("  RMSLE: {}".format(RMSLE))
     
     # Log Params
 #    mlflow.log_param("boosting_type", 'gbdt')
@@ -230,6 +242,7 @@ with mlflow.start_run():
     mlflow.log_metric("MSE", MSE)
     mlflow.log_metric("MAE", MAE)
     mlflow.log_metric("R2", R2)
+    mlflow.log_metric('RMSLE', RMSLE)
     
     mlflow.sklearn.log_model(LGBMRegressor_model, "model")
 

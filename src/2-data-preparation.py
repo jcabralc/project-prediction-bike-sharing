@@ -39,8 +39,31 @@ bikes['temp_PCA']=pca.fit_transform(bikes[['temp','atemp']])
 ##############################
 #     transform the "dteday" feature to date type
 ##############################
-bikes["dteday"] = pd.to_datetime(bikes["dteday"])
+#bikes["dteday"] = pd.to_datetime(bikes["dteday"])
 
+##############################
+#     Feature Engineering
+##############################
+date = pd.DatetimeIndex(bikes['dteday'])
+
+bikes['year'] = date.year
+#bikes['month'] = date.month
+bikes['hour'] = date.hour
+bikes['dayofweek'] = date.dayofweek
+
+bikes['year_season'] = bikes['year'] + bikes['season'] / 10
+
+#bikes['hour_workingday_casual'] = bikes[['hour', 'workingday']].apply(
+#        lambda x: int(10 <= x['hour'] <= 19), axis=1)
+#
+#bikes['hour_workingday_registered'] = bikes[['hour', 'workingday']].apply(
+#        lambda x: int((x['workingday'] == 1 and (x['hour'] == 8 or 17 <= x['hour'] <= 18))
+#        or (x['workingday'] == 0 and 10 <= x['hour'] <= 19)), axis=1)
+    
+by_season = bikes.groupby('year_season')[['cnt']].median()
+by_season.columns = ['count_season']
+
+bikes = bikes.join(by_season, on='year_season')
 ##############################
 #     Replace windwindspeed
 ##############################
@@ -49,17 +72,17 @@ bikes.loc[bikes['windspeed']==0, 'windspeed'] = bikes['windspeed'].mean()
 ##############################
 #     One-Hot-Encoding
 ##############################
-def dummify_dataset(df, column):
-    df = pd.concat([df, pd.get_dummies(df[column], prefix=column)], axis=1)
-    df = df.drop([column], axis=1)
-    return df
-
-
-columns_to_dummify = ['season', 'holiday', 'workingday', 'weathersit', 'mnth']  # , 'weekday'
-for column in columns_to_dummify:
-    bikes = dummify_dataset(bikes, column)
-    
-print(bikes.head(1))
+#def dummify_dataset(df, column):
+#    df = pd.concat([df, pd.get_dummies(df[column], prefix=column)], axis=1)
+#    df = df.drop([column], axis=1)
+#    return df
+#
+#
+#columns_to_dummify = ['season', 'holiday', 'workingday', 'weathersit', 'mnth']  # , 'weekday'
+#for column in columns_to_dummify:
+#    bikes = dummify_dataset(bikes, column)
+#    
+#print(bikes.head(1))
 
 ##############################
 #     Normalize features - scale
@@ -93,7 +116,6 @@ print(bikes.loc[:, numerical_features][:5])
 ##############################
 #     Log Target
 ##############################
-
 bikes['cnt'] = np.log(bikes['cnt']+1)
 
 ##############################
