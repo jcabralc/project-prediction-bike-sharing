@@ -14,20 +14,17 @@ import pandas as pd
 from datetime import datetime
 
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-#from sklearn.linear_model import LinearRegression
-#from sklearn.linear_model import Ridge
-#from sklearn.linear_model import Lasso
-#from sklearn.linear_model import ElasticNet
-#from sklearn.tree import DecisionTreeRegressor
-#from sklearn.svm import SVR # Support Vector Regression
 
-#from sklearn.model_selection import cross_validate
+from sklearn.ensemble import RandomForestRegressor
 
 from sklearn.metrics import mean_squared_log_error
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_absolute_error
+
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import make_scorer
+
 #import sklearn.metrics as metrics
 
 import matplotlib.pyplot as plt
@@ -36,7 +33,7 @@ import mlflow
 import mlflow.sklearn
 
 #mlflow.delete_experiment('0')
-#mlflow.delete_run('cf5ddc8f977e4a3c86890b6ad61cbbbf')
+#mlflow.delete_run('094a317d4cd342539339cdae26951efd')
 
 np.random.seed(40)
 
@@ -62,22 +59,44 @@ if not os.path.exists(PATH_MODEL):
 split = 0.33
 seed = 201910
 
+algorithm_name = 'RandomForestRegressor'
 ###############################
 ##  Function Evaluation
 ###############################
+#def RMSLE_metric(real, predicted):
+#    sum=0.0
+#    for x in range(len(predicted)):
+#        if predicted[x]<0 or real[x]<0: #check for negative values
+#            continue
+#        p = np.log(predicted[x]+1)
+#        r = np.log(real[x]+1)
+#        sum = sum + (p - r)**2
+#    return (sum/len(predicted))**0.5
+
+def RMSLE_metric(y, y_):
+    log1 = np.nan_to_num(np.array([np.log(v + 1) for v in y]))
+    log2 = np.nan_to_num(np.array([np.log(v + 1) for v in y_]))
+    calc = (log1 - log2) ** 2
+    return np.sqrt(np.mean(calc))
+
 def eval_metrics(actual, pred):
     MSLE = mean_squared_log_error(actual, pred) 
     MSE = mean_squared_error(actual, pred) 
     R2 = r2_score(actual, pred)  
     MAE = mean_absolute_error(actual, pred)
-    return MSLE, MSE, R2, MAE
+    RMSLE = RMSLE_metric(actual, pred)
+    return R2, MAE, RMSLE , MSE,MSLE 
 
 ###############################
 ##    Model Parameters
 ###############################
-max_depth = float(sys.argv[1]) # if len(sys.argv) > 1 else 0.5
-n_estimators = int(sys.argv[2]) # if len(sys.argv) > 2 else 0.5
+#max_depth = float(sys.argv[1]) # if len(sys.argv) > 1 else 0.5
+#n_estimators = int(sys.argv[2]) # if len(sys.argv) > 2 else 0.5
 
+models_params = { 
+        'max_depth': 20,
+        'n_estimators': 150}
+              
 ###############################
 ##    Create Folder model version
 ###############################
@@ -114,6 +133,7 @@ bike_processed = pd.read_csv(data_processed_path )
 X = bike_processed[bike_processed.columns.difference(['cnt', 'dteday'])].values
 y = bike_processed['cnt'].values
 
+print(bike_processed.head())
 ##############################
 #    Train Test Split
 ##############################
@@ -146,29 +166,66 @@ print('X_test matrix size {}'.format(X_test.shape))
 
 with mlflow.start_run():
     
-    mlflow.set_tag('algorithm', 'RandomForestRegressor')
-                   
-    regr = RandomForestRegressor(max_depth=max_depth, n_estimators=n_estimators, random_state=seed)
-    regr.fit(X_train, y_train)
+    mlflow.set_tag('algorithm', algorithm_name)
+    mlflow.set_tag('model_version_name', model_version_name)
+
     
-    y_pred = regr.predict(X_test)
+## GridSearch 
+    param_search = {'n_estimators': np.random.randint(150, size=10), 
+                    'max_depth': [10, 15, 20, 25], 
+                    'min_samples_split': [2, 3, 4]}
+
+
+    RandomForestRegressor_model =  RandomForestRegressor(random_state = seed, 
+                                                max_depth = models_params.get('max_depth'),
+                                                n_estimators = models_params.get('n_estimators'))
     
-    (MSLE, MSE, R2, MAE) = eval_metrics(y_test, y_pred)
+    scorer = make_scorer(RMSLE_metric, greater_is_better=False)
+    grid_search_model = GridSearchCV(RandomForestRegressor_model, param_search, cv=5, scoring=scorer)
+    grid_search_model.fit(X_train, y_train)
+
+    print("GridSearch Finish! Best Params and Best Score: \n")
+    print(grid_search_model.best_params_)
+    print(grid_search_model.best_score_)
     
-    print("RandomForest (max_depth={}, n_estimators={}):".format(max_depth,n_estimators))
-    print("  MLSE: {}".format(MSLE))
-    print("  MSE: {}".format(MSE))
-    print("  MAE: {}".format(MAE))
-    print("  R2: {}".format(R2))
+    # Use the best model
+    models_params['max_depth'] = grid_search_model.best_params_['max_depth']
+    models_params['n_estimators'] = grid_search_model.best_params_['n_estimators']
+    models_params['min_samples_split'] = grid_search_model.best_params_['min_samples_split']
     
-    mlflow.log_param("max_depth", max_depth)
-    mlflow.log_param("n_estimators", n_estimators)
-    mlflow.log_metric("MSLE", MSLE)
-    mlflow.log_metric("MSE", MSE)
-    mlflow.log_metric("MAE", MAE)
-    mlflow.log_metric("R2", R2)
+## Model Train   
+    RandomForestRegressor_model = RandomForestRegressor(random_state = seed, 
+                                                max_depth = models_params.get('max_depth'),
+                                                n_estimators = models_params.get('n_estimators'),
+                                                min_samples_split = models_params.get('min_samples_split'))
     
-    mlflow.sklearn.log_model(regr, "model")
+    RandomForestRegressor_model.fit(X_train, y_train)
+    
+    y_pred = RandomForestRegressor_model.predict(X_test)
+   # y_pred = np.exp(y_pred)-1 # Non log
+    
+#    (MSLE, MSE, R2, MAE, RMSLE) = eval_metrics(y_test, y_pred)
+    RMSLE = RMSLE_metric(y_test, y_pred)
+    
+    print("RandomForestRegressor:")
+#    print("  MLSE: {}".format(MSLE))
+#    print("  MSE: {}".format(MSE))
+#    print("  MAE: {}".format(MAE))
+#    print("  R2: {}".format(R2))
+    print("  RMSLE: {}".format(RMSLE))
+    
+    # Log Params
+    for param in models_params.keys():
+        mlflow.log_param(param, models_params.get(param))
+    
+    # Log Metrics
+#    mlflow.log_metric("MSLE", MSLE)
+#    mlflow.log_metric("MSE", MSE)
+#    mlflow.log_metric("MAE", MAE)
+#    mlflow.log_metric("R2", R2)
+    mlflow.log_metric('RMSLE', RMSLE)
+    
+    mlflow.sklearn.log_model(RandomForestRegressor_model, "model")
 
     print('Modelo treinado com sucesso!')
 
@@ -182,10 +239,19 @@ with mlflow.start_run():
     ax.axhline(lw=2,color='black')
     ax.set_xlabel('Observed')
     ax.set_ylabel('Residuals')
-    ax.title.set_text('Residual Plot | Root Squared Mean Log Error: {}'.format(np.sqrt(MSLE)))
+    ax.title.set_text('Residual Plot | RMSLE: {}'.format(np.sqrt(RMSLE)))
     plot_residuls = "{}/{}-{}.png".format(model_version_path, 'model-residuals', model_version_name)
     plt.savefig(plot_residuls)
+    
+    # Plot Model
+    plt.scatter(y_train, RandomForestRegressor_model.predict(X_train), alpha=0.5, color = 'red')
+    plt.scatter(y_test, RandomForestRegressor_model.predict(X_test), alpha=0.5, color = 'blue')
+    plt.title('Random Forest Model')
+    plot_model = "{}/{}-{}.png".format(model_version_path, 'model-plot', model_version_name)
+    plt.savefig(plot_model )
+    
     mlflow.log_artifact(plot_residuls)
+    mlflow.log_artifact(plot_model)
     #plt.show()
 
     ##############################
