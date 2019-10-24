@@ -11,8 +11,7 @@ As a plus, the [MLFlow framework ](https://www.mlflow.org/) was used to track an
 Prints of the final results:
 
 MLFlow Experiments
-![MLFlow Experiments](URL)
+![MLFlow Experiments](https://github.com/jcabralc/project-prediction-bike-sharing/blob/master/images/mlflow.PNG)
 
 Best Model Results
-![Best Model Results](URL)
-\
+![Best Model Results](https://github.com/jcabralc/project-prediction-bike-sharing/blob/master/images/mlflow-best-model.PNG)
