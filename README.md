@@ -6,6 +6,8 @@ This repository contains project files from the first [Data Science Academy]([ht
 
 The project aims to forecast the demand for bikes.
 
+Blog post explaning the codes can be find [here](https://jcabralc.wordpress.com/2019/09/28/prevendo-bike-sharing/)
+
 As a plus, the [MLFlow framework ](https://www.mlflow.org/) was used to track and manage the various versions of the model.
 
 Prints of the final results:
