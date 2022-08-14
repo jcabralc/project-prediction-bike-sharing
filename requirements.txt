@@ -59,7 +59,7 @@ pandas==0.25.1
 paramiko==2.10.1
 pathspec==0.5.9
 patsy==0.5.1
-Pillow==8.1.1
+Pillow==9.0.1
 ply==3.11
 protobuf==3.8.0
 pyarrow==0.15.1
